@@ -1,0 +1,616 @@
+---
+title: "Predicting Income Level Using the Adult Census Income Data Set"
+author: "N Ray"
+date: "2019/12/11"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+# 1. INTRODUCTION
+
+The *Adult Census Income* data set contains approximately 32,500 records of the income levels and 14 socio-economic factors, such as race, education, age, etc., of census correspondents in 1994. The purpose of the  analysis is to determine whether a group of correspondents  earn an annual salary of either less or greater then $50,000.
+
+This report analyses the data set using four different machine learning algorithms. The first is the *Generalised Linear Mode (GLM)* which fits a linear regression model to the data. The second algorithm attempts to improve upon the accuracy of the first by using  *K Nearest Neighbours (KNN)*. The third algorithm is *Classification and Regression Trees (CART)* and the fourth is *Random Forests*.
+
+After having applied the data set to the four different algorithms, the final results show that only *Random Forest* improved upon the accuracy of the linear regression algorithm.
+
+The URL for *Adult Census Income* is  
+ https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+
+The git-hub directory of the files for this project is  
+https://git hub.com/yu138538/Adult-Income-Census-Project
+
+
+```{r Data Download, echo=FALSE, include=FALSE}
+shell("cls")
+
+# 1. INTRODUCTION
+
+
+# Create edx set, validation set
+
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(readxl)) install.packages("readxl", repos = "http://cran.us.r-project.org")
+if(!require(knitr)) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require(htmlTable)) install.packages("htmlTable", repos = "http://cran.us.r-project.org")
+if(!require(rpart)) install.packages("rpart", repos = "http://cran.us.r-project.org")
+if(!require(rpart.plot)) install.packages("rpart.plot", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
+
+library(tidyverse)
+library(caret)
+library(data.table)
+library(readxl)
+library(knitr)
+library(htmlTable)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+
+
+options(pillar.sigfig = 5)
+
+# Adult Census Income:
+# https://archive.ics.uci.edu/ml/machine-learning-databases/adult/
+# https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
+# https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
+```
+
+# 2. ANALYSIS
+
+## 2.1 The *Census Adult Income* Data set
+
+The *Census Adult Income* data set consists of 15 fields and approximately 32,500 records.
+
+```{r , echo=FALSE}
+# 2. ANALYSIS
+
+# 2.1 THE CENSUS ADULT INCOME DATA SET
+
+# US cencus data
+census_uci <- read.table('https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data', 
+                     sep = ',', fill = F, strip.white = T)
+colnames(census_uci) <- c('age', 'workclass', 'fnlwgt', 'education', 
+                      'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 
+                      'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'income')
+census <- census_uci
+
+# kabble(census)
+glimpse(census)
+# view(census)
+```
+
+### 2.1.1 The *Census Adult Income* Summary of Fields
+
+Below is a summary of the fields, or attributes, of the data set .
+
+
+#### Age
+
+The age of the census correspondents.
+
+```{r , echo=FALSE}
+# 2.1.1 Summary tables and plots Adult Census Income data set
+ census %>% ggplot(aes(x=age,color=income,fill =income))+geom_histogram(color="black",binwidth = 5)+ggtitle("Age")
+ census %>% group_by(age) %>% summarise(n=n()) %>% arrange(desc(n)) %>% mutate(Pct=n/sum(n))
+```
+
+
+#### Workclass
+
+The nature of the employment status or sector of correspondents. 
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=workclass,color=income,fill =income))+geom_bar(color="black")+ggtitle("Work Class") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(workclass) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+The data analysis excludes this field as it bares little to no impact on the final results.  
+
+
+
+#### Fnlwgt
+
+The number of correspondents grouped by the attributes of each data record.
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=fnlwgt,color=income,fill =income))+geom_histogram(color="black")+ggtitle("Fnlwgt")+scale_x_continuous(trans = 'log10')
+ census %>% group_by(fnlwgt) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+The data analysis excludes this field as it bares little to no impact on the final results.  
+
+
+
+#### Education
+
+The education level of correspondents.
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=education,color=income,fill =income))+geom_bar(color="black")+ggtitle("Education Level") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(education) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+This field is made redundant by the *education_num* field which provides the same information  quantitatively. As a result it is excluded from the data analysis.
+
+
+#### Education_num
+
+The number of years of education of the correspondents.
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=education_num,color=income,fill =income))+geom_histogram(color="black",binwidth = 1)+ggtitle("Years of Education")
+ census %>% group_by(education_num) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+This fields makes the *education* field redundant.  
+
+
+#### Marital_status
+
+The marital status of the correspondents.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=marital_status,color=income,fill =income))+geom_bar(color="black")+ggtitle("Marital Status") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(marital_status) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+For the data analysis, this field is grouped into a binary field that assigns a value of *TRUE* for married correspondents.
+
+
+#### Occupation
+
+The profession of thew correspondents.
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=occupation,color=income,fill =income))+geom_bar(color="black")+ggtitle("Occupation") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(occupation) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+For the data analysis this field is grouped into two categories that separate professional and clerical correspondents from the others.
+
+
+#### Relationship
+
+The relationship within a family of the correspondents.
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=relationship,color=income,fill =income))+geom_bar(color="black")+ggtitle("Relationship") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(relationship) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+This field is excluded from the data analysis as it has little or no impact. The *sex* and *marital* fields provide more relevant information.  
+
+
+#### Race
+
+The race of each correspondent.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=race,color=income,fill =income))+geom_bar(color="black")+ggtitle("Race") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(race) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+
+
+#### Sex
+
+The sex of each correspondent.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=sex,color=income,fill =income))+geom_bar(color="black")+ggtitle("Sex")
+ census %>% group_by(sex) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+
+
+#### Capital_gain
+
+The amount of capital gained by the correspondents.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=capital_gain,color=income,fill =income))+geom_histogram(color="black")+ggtitle("Capital Gains")
+ census %>% group_by(capital_gain) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+
+
+#### Capital_loss
+
+The amount of capital lost by the correspondents.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=capital_loss,color=income,fill =income))+geom_histogram(color="black")+ggtitle("Capital Losses")
+ census %>% group_by(capital_loss) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+Because more than 90% of correspondents have capital gains or losses of zero, these field are grouped into binary fields where values greater than zero are assigned as *TRUE*.
+
+#### Hours_per_week
+
+The number of hours worked per week.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=hours_per_week,color=income,fill =income))+geom_histogram(color="black",binwidth = 5)+ggtitle("Hours Per Week")
+ census %>% group_by(hours_per_week) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+
+
+#### Native Country
+
+The country of birth of the correspondents.  
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=native_country,color=income,fill =income))+geom_bar(color="black")+ggtitle("Native Country") + theme(axis.text.x = element_text(angle = 90))
+ census %>% group_by(native_country) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+Because the high proportion of correspondents born in America, this field is grouped into a binary field assigning "American" as *TRUE*.
+
+
+#### Income
+
+The classification of correspondents into those who  earn less or greater than $50,000 annually. 
+
+```{r , echo=FALSE}
+census %>% ggplot(aes(x=income,color=income,fill =income))+geom_bar(color="black")+ggtitle("Income Bracket")
+ census %>% group_by(income) %>% summarise(n=n()) %>% arrange(desc(n))%>% mutate(Pct=n/sum(n))
+```
+In the data analysis, records classified as greater than $50 thousand (>50K) are assigned a value of 1 and the rest (<=50K) are assigned 0. In the Regression Tree analysis the categorical values are used in addition to the numerically assigned ones.  
+
+### 2.1.2 Excluded Fields
+
+As previously mentioned some fields are excluded from the analysis due to their redundancy. The  *Education_num* field quantitatively provides the same information as *Education*.
+
+```{r , echo=FALSE}
+#Inspecting different variables for redundancy
+#education vs Education_num. Remove Education field due to 1:1 relationship with education_num
+
+census %>% group_by(education_num,education) %>% summarise(n=n()) %>% arrange(education_num)
+```
+
+  
+*Sex* and *marital_status* render *relationship* redundant.
+
+```{r , echo=FALSE}
+#Relationshio vs sex vs marital_status
+census %>% group_by(marital_status,relationship,sex) %>% summarise(n=n()) %>% arrange(marital_status)
+```
+
+### 2.1.3 Modified data set for analysis
+
+The original data set has been modified for analysis purposes. The training and testing data sets were generated using the following modified data set:
+
+```{r , echo=FALSE}
+#Redefine data set removing insignificant columns
+# Remove EDUCATION field: redundant
+# Remove RELATIONSHIP field: relevant info provided by SEX and MARITAL_STATUS fields
+# Remove FNLWGT field: not relevant to final results
+# RACE field grouped into WHITE= TRUE (not used)
+# AMERICAN: United-States = TRUE, others = FALSE
+# CAPITAL_GAIN / LOSS: >0 = TRUE
+# Income_Class: >50k = 1, <=50k =0
+# Sex: F=0, M=1
+# OCCUPATION field grouped into PROF_CLERICAL = TRUE
+# MARITAL_STATUS field grouped into MARRIED = TRUE
+# Remove WORKCLASS: unresolvable error
+
+census <- census_uci %>% 
+ mutate(
+    # marital_status= ifelse(str_detect(marital_status,"Married"),"Married",str_c(marital_status))
+     married= str_detect(marital_status,"Married")
+    ,prof_clerical = (occupation=="Prof-specialty" | 
+                        occupation=="Exec-managerial"|
+                        occupation=="Adm-clerical"|
+                        occupation=="Sales"|
+                        occupation=="Tech-support"|
+                        occupation=="Protective-serv")
+     ,sex = ifelse(sex=="Male",1,0)
+     ,American = str_detect(native_country,"United-States")
+     ,capital_gain=(capital_gain>0)
+     ,capital_loss=(capital_loss>0)
+     # ,white = race == "white"     
+     ,income_class = (income==">50K")*1
+    ) %>% 
+  # select(-education,-fnlwgt,-relationship,-capital_gain,-capital_loss,-native_country)
+  select(-education,-fnlwgt,-native_country,-relationship,-workclass,-marital_status,-occupation, ) 
+
+str(census)
+```
+
+The modified data set drops the *education, fnlgwt, relationship,* and *native_country* fields for reasons explained in the previous section.  
+
+The binary *married* field replaces the categorical *marital_status* field.  
+
+*Prof_Clerical* replaces *Occupation* , and *American* replaces *native_country*, in each case grouping categorical fields into binary fields.  
+
+*capital_gains* and *capital_loss* were both converted to binary fields. And *income_class* converts the values *income* into ones for (>50k) and zeroes (<=50K).
+
+
+Below is a summary of the modified model:
+
+
+```{r , echo=FALSE}
+summary(census)
+```
+
+
+For analysis, the training data set uses 80% of the the original analysis data set, and the test set uses the remaining 20%. The *income class* distribution for the is as follows:
+
+
+```{r , echo=FALSE}
+# Create Data partition
+ set.seed(1)
+
+test_index <- createDataPartition(y = census$income, times = 1, p = 0.2, list = FALSE)
+train_set <- census[-test_index,]
+test_set <- census[test_index,]
+
+table(train_set$income_class)
+```
+
+## 2.2 GENERALISED LINEAR REGRESSION MODEL (GLM)
+
+The first analysis fits training data to a *Generalised Linear Regression Model*.  
+
+A summary of the model is provided below:
+
+```{r , echo=FALSE}
+#--------------
+# ANALYSIS
+
+#--------------
+# 2.2 GLM LINEAR REGRESSION MODEL
+train_glm <- train_set %>% 
+  select(-income) %>% 
+  glm(income_class ~ .,data = .,family=binomial('logit')) 
+
+#GLM Summary
+train_glm%>% 
+  summary()
+```
+
+The coefficients of the variables:
+
+```{r , echo=FALSE}
+#GLM coefficients
+train_glm
+
+# Remove original INCOME field 
+test_set2 <- test_set %>% 
+  select(-income)
+
+train_set2 <- train_set %>% 
+  select(-income)
+
+# predict(train_glm,test_set2,type='response')
+
+#Fit to Test set
+# fit <- round(predict(train_glm,test_set2,type='response'),0)
+fit <- ifelse(predict(train_glm,test_set2,type='response')>=0.5,1,0)
+
+fit_table <- data.frame(test_set,fit)
+
+# str(fit_table)
+```
+
+The GLM model yields the following results:  
+
+```{r , echo=FALSE}
+# Accuracy of the the linear regression fit
+table(fit_table$income_class,fit_table$fit)
+nrow(fit_table )
+table(fit_table$income_class,fit)/nrow(fit_table )
+
+GLM_acc<-fit_table %>% 
+  summarise(mean(income_class==fit))
+
+# GLM_acc
+tibble(Method = "Generalised Linear Model", Accuracy = as.numeric(GLM_acc))
+```
+GLM yields an accuracy of approximately `r as.numeric(GLM_acc)`.
+
+
+## 2.3 K NEAREST NEIGHBOURS (KNN)
+
+In an effort to improve upon the results of the GLM model, the analysis data set is now analysed using *K Nearest Neighbours*. This algorithm classifies or estimates data based on the similarity of other data points.
+
+```{r , echo=FALSE}
+#--------------
+# 2.3 K NEAREST NEIGHBOURS
+
+#Remove MARITAL_SATAUS due to unresolvable error
+train_set5 <- train_set %>% 
+  # select(-income,-marital_status,-occupation)
+  select(-income_class)
+
+test_set5 <- test_set %>% 
+  # select(-income,-marital_status,-occupation)
+  select(-income_class)
+
+train_knn <- train(income~.,method="knn",data = train_set5)
+```
+
+The optimal tuning parameter for the model:
+
+```{r , echo=FALSE}
+#KNN model parameters
+train_knn$bestTune
+```
+
+A summary of the KNN model:
+
+```{r , echo=FALSE}
+train_knn$finalModel
+
+knn_pred<-predict(train_knn,test_set5,type="raw")
+
+knn_table <- data.frame(test_set5,knn_pred)
+```
+
+The KNN model yields the following results:  
+
+```{r , echo=FALSE}
+# Accuracy of the the KNN fit
+table(knn_pred,test_set5$income)
+length(knn_pred)
+table(knn_pred,test_set5$income)/length(test_set5$income)
+
+KNN_acc<-knn_table %>% 
+	summarise(mean(income==knn_pred))
+
+# KNN_acc
+tibble(Method = "K Nearest Neighbours", Accuracy=as.numeric(KNN_acc))
+```
+
+The accuracy of `r as.numeric(KNN_acc)` is slightly less than that yielded by the linear regression model.  
+
+## 2.4 CLASSIFICATION AND REGRESSION TREES (CART)
+
+The data set is now analysed using *Classification and Regression Trees (CART)*. This method recursively partitions the data set and fits regression models to each data subset.
+
+```{r , echo=FALSE}
+#--------------
+# 2.4 REGRESSION TREES
+
+#Remove categorical fields
+train_set3 <- train_set %>% 
+  # select(-income,-marital_status,-occupation)
+  select(-income)
+
+test_set3 <- test_set %>% 
+  # select(-income,-marital_status,-occupation)
+  select(-income)
+
+#Probability Plot of earning GT 50K
+
+fit_rt <- rpart(income_class~.,data = train_set3)
+# fit_rt
+
+rpart.plot(fit_rt,main="Probability of GT $50K",yesno=2)
+```
+
+An output of the rules of the regression tree shown above:  
+
+```{r , echo=FALSE}
+rpart.rules(fit_rt,cover=TRUE)
+```
+
+This first regression groups data into floating point decimal values which measure the probability of earning above $50,000 annually.  For a binary classification, Values of greater than 0.5 would be rounded to 1.0 and thus classified as ">50K".  This form of the algorithm is a *Regression Tree*. But because of the rounding involved in fitting the training data, this functions as a *Classification Tree*.
+
+
+
+```{r , echo=FALSE}
+#Classiification Plot of earning GT 50K
+fit_rtc <- rpart(income_class~.,data = train_set3,method = 'class')
+
+rpart.plot(fit_rtc, main="Classification of GT $50K",yesno=2)
+```
+
+An output of the rules of the regression tree shown above:  
+
+
+```{r , echo=FALSE}
+rpart.rules(fit_rtc,cover=TRUE)
+```
+
+
+This regression tree classifies data into discrete values of 0 and 1, which represent the categorical classes of "<=50K" and ">50K" respectively.  This modification of the algorithm is a *Classification Tree*.
+
+```{r , echo=FALSE}
+#Type = class
+ rt_predc <- predict(fit_rtc,newdata=test_set3,type='class')
+# rt_predc <- predict(fit_rtc,newdata=test_set3)
+
+rt_table <- table(rt_predc,test_set3$income_class)
+```
+
+
+The CART model yields the following results: 
+
+```{r , echo=FALSE}
+rt_table
+nrow(test_set3)
+rt_table/nrow(test_set3)
+rt_dftable <- data.frame(test_set3,rt_predc)
+
+rt_acc <- rt_dftable %>% summarise(mean(income_class==rt_predc))
+# rt_acc
+tibble(Method = "Classification and Regression Trees (CART)", Accuracy = as.numeric(rt_acc))
+```
+
+The accuracy of `r as.numeric(rt_acc)` is slightly less than that yielded by the linear regression model.
+
+## 2.5 RANDOM FORESTS
+
+The data set is now analysed using the *Random Forest* algorithm. This algorithm fits data by aggregating the results of a large number of individual regression trees.
+
+```{r , echo=FALSE}
+#---------------------
+# 2.5 RANDOM FORESTS
+
+#Remove MARITAL_SATAUS due to unresolvable error
+train_set4 <- train_set %>% 
+  # select(-income,-marital_status,-occupation)
+   # select(-income,-marital_status)
+   select(-income)
+  
+test_set4 <- test_set %>% 
+  # select(-income,-marital_status,-occupation)
+  # select(-income,-marital_status)
+   select(-income)
+```
+
+A summary of the Random Forest model:
+
+```{r , echo=FALSE}
+#train_rf <- randomForest(income_class~.,data=train_set4,trees= 150)
+ train_rf <- randomForest(income_class~.,data=train_set4)
+train_rf
+
+
+#Accuracy improves with the number of trees
+plot(train_rf)
+```
+
+The above plot demonstrates how the model error diminishes with the number of trees used to analyse the data.
+
+```{r , echo=FALSE}
+rf_pred <- ifelse(predict(train_rf,test_set4)>=0.5,1,0)
+
+rf_table <- table(rf_pred,test_set4$income_class)
+```
+
+The Random Forest model yields the following results:  
+
+```{r , echo=FALSE}
+rf_table
+nrow(test_set4)
+rf_table/nrow(test_set)
+rf_dftable <- data.frame(test_set4,rf_pred)
+
+rf_acc <- rf_dftable %>% summarise(mean(income_class==rf_pred))
+# rf_acc
+tibble(Method = "Random Forests", Accuracy = as.numeric(rf_acc))
+```
+
+The accuracy of `r as.numeric(rf_acc)` is a slight improvement upon the accuracy of linear regression model.
+
+# 3. RESULTS
+
+The final results yielded the following for the four different machine learning algorithms applied to the data set:
+
+```{r , echo=FALSE}
+#--------
+# accuracy summary  
+
+# 3. RESULTS
+# Training set of 20% of data set
+
+results1 <- tibble(Method = "Generalised Linear Model (GLM)", Accuracy = as.numeric(GLM_acc))
+results2 <- tibble(Method = "K Nearest Neighbours (KNN)", Accuracy=as.numeric(KNN_acc))
+results3 <- tibble(Method = "Classification and Regression Trees (CART)", Accuracy = as.numeric(rt_acc))
+results4 <- tibble(Method = "Random Forests", Accuracy = as.numeric(rf_acc))
+
+rbind(results1,results2,results3,results4)
+
+```
+
+Only the *Random Forest* algorithm improved upon the accuracy of the *Generalised Linear Model*.
+
+# 4. CONCLUSION
+
+As demonstrated, the *Random Forest* algorithm produces the most accurate estimate for the income of census correspondents. It is also the only one that yields greater accuracy than the *Genralised Linear Model (GLM)* algorithm. The accuracy of this model could have been further increased by experimenting with different combinations of the socio-economic factors that determine income. Socio-economic factors could have also been further revised to group attributes into binary values or a smaller number of super-grouped categories. The analysis could have also been used to fit the *Adult Census Income Test Set* ( https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test) in order to determine how well the analysis models perform against a completely different data set.
+
